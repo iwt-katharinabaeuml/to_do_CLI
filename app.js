@@ -1,45 +1,9 @@
-const mongoose = require("mongoose");
+//const mongoose = require("mongoose");
 const express = require("express");
 const readline = require("readline");
-const path = require("path");
-
-// connection to data base
-// Verbindung zur Datenbank herstellen
-mongoose
-  .connect("mongodb://localhost:27017/to_do", {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => {
-    // Verbindung erfolgreich hergestellt
-
-    // Daten abrufen und Verbindung schließen
-    fetchDataFromDatabase().then(() => mongoose.connection.close());
-  })
-  .catch((err) => {
-    console.error("Fehler bei der Verbindung zur Datenbank:", err);
-  });
-
-// Eigene Funktion für das Abrufen von Daten
-async function fetchDataFromDatabase() {
-  try {
-    // Hier wird das Mongoose-Model dynamisch erstellt
-    const TaskModel = mongoose.model("Task");
-
-    // Daten abrufen (alle Dokumente in der Kollektion)
-    const allData = await TaskModel.find({});
-
-    // Verarbeite die abgerufenen Daten
-    console.log("Abgerufene Daten:", allData);
-  } catch (error) {
-    console.error("Fehler beim Abrufen der Daten:", error);
-  }
-}
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+const mongoose = require("./db");
+const seedDatabase = require("./seeder");
+const yargs = require("yargs");
 
 // validator handling
 function question(prompt, validator) {
@@ -57,6 +21,43 @@ function question(prompt, validator) {
     ask();
   });
 }
+
+var args = yargs
+  .option("d", {
+    describe: "Delete the whole database data",
+    alias: "delete",
+    type: "boolean",
+    default: false,
+    demandOption: false,
+    choices: [true, false],
+  })
+  .option("a", {
+    describe: "Add a new element to the data base",
+    alias: "delete",
+    type: "boolean",
+    default: false,
+    demandOption: false,
+    choices: [true, false],
+  })
+  .help("h").argv;
+
+if (args.d) {
+  question("Do you sure you want delete all data in the data base?", (answer) =>
+    /^(true|false|t|f)$/i.test(answer)
+  );
+
+  if (answer == true || answer == t) {
+    Task.deleteMany({});
+  }
+  //deleteWholeDatabase();
+}
+
+//build up CLI
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
 const currentDate = new Date();
 
 // validator creation date
@@ -79,22 +80,7 @@ async function isCompletionDateValid(dateStr) {
   }
 }
 
-// getting data from data base
-
-// function getAllElements() {
-//   path = "mongodb://localhost:27017/to_do/tasks"
-//     .fetch(path)
-//     .then((data) => console.log(data))
-//     .catch((error) => {
-//       console.error("Fehler bei der API-Anfrage:", error);
-//       console.error(error.message);
-//     });
-// }
-
-// getAllElements();
-// Input questioning in data base structure
-
-async function main() {
+async function addData() {
   const description = await question("Description: ");
   const creationDate = await question(
     "Date of creation (MM/DD/YYYY): ",
@@ -142,10 +128,20 @@ async function main() {
     console.log("Priority:", priority.toLowerCase());
   }
 
-  rl.close();
+  yargs.command({
+    command: "back", // Befehl, um zur CLI-Anwendung zurückzukehren
+    describe: "Return to the CLI application",
+    handler: () => {
+      // Hier kannst du weitere Aktionen ausführen, wenn der 'back'-Befehl eingegeben wird
+      console.log("Returning to the CLI application...");
+      rl.close(); // Schließe das readline-Interface, um zur CLI zurückzukehren
+    },
+  }).argv;
 }
 
-main();
+addData();
 
-/// connection to database? same repo?
-/// completion date in optional;
+function seedDummyData() {
+  seedDatabase().then(() => console.log("Data added"));
+}
+// mongoose.connection.close()
