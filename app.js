@@ -38,9 +38,10 @@ function seedDummyData() {
   seedDatabase().then(process.exit);
 }
 if (args.d) {
-  question(
-    "Are you sure you want to delete all data in the database? (true/false): "
-  )
+  addingData
+    .question(
+      "Are you sure you want to delete all data in the database? (true/false): "
+    )
     // TODO: vorhandenen Validator benutzen?
     .then((answer) => {
       if (/^(true|false|t|f)$/i.test(answer)) {
