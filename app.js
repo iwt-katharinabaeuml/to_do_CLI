@@ -1,9 +1,13 @@
-//const mongoose = require("mongoose");
-const express = require("express");
 const readline = require("readline");
-const mongoose = require("./db");
 const seedDatabase = require("./seeder");
 const yargs = require("yargs");
+const Task = require("./models/task");
+
+//build up CLI
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
 
 // validator handling
 function question(prompt, validator) {
@@ -33,7 +37,15 @@ var args = yargs
   })
   .option("a", {
     describe: "Add a new element to the data base",
-    alias: "delete",
+    alias: "add",
+    type: "boolean",
+    default: false,
+    demandOption: false,
+    choices: [true, false],
+  })
+  .option("s", {
+    describe: "Add a default data to the data base",
+    alias: "seed",
     type: "boolean",
     default: false,
     demandOption: false,
@@ -41,22 +53,12 @@ var args = yargs
   })
   .help("h").argv;
 
-if (args.d) {
-  question("Do you sure you want delete all data in the data base?", (answer) =>
-    /^(true|false|t|f)$/i.test(answer)
-  );
-
-  if (answer == true || answer == t) {
-    Task.deleteMany({});
-  }
-  //deleteWholeDatabase();
-}
-
-//build up CLI
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+// .finally(() => {
+//   // Hier kann Code platziert werden, der nach dem Löschen oder Abbrechen ausgeführt werden soll
+//   // Beispiel: Öffnen Sie die CLI für neue Befehle
+//   rl.setPrompt('Enter your command: '); // Setze den Prompt-Text
+//   rl.prompt(); // Zeige den Prompt wieder an
+// });
 
 const currentDate = new Date();
 
@@ -94,6 +96,13 @@ async function addData() {
   let completed = await question("Completed (true/false):", (answer) =>
     /^(true|false|t|f)$/i.test(answer)
   );
+
+  if (completed === "t") {
+    completed = true;
+  }
+  if (completed === "f") {
+    completed = false;
+  }
   let priority = await question("Priority (high/medium/low/none): ", (answer) =>
     /^(high|medium|low|none|h|m|l|n)$/i.test(answer)
   );
@@ -102,10 +111,7 @@ async function addData() {
   console.log("Description:", description);
   console.log("Creation Date:", new Date(creationDate));
   console.log("Completion Date:", completionDate);
-  console.log(
-    "Completed:",
-    completed.toLowerCase() === "true" || completed.toLowerCase() === "t"
-  );
+  console.log("Completed:", completed);
 
   if (priority.length == 1) {
     switch (priority) {
@@ -127,21 +133,61 @@ async function addData() {
   if (["high", "medium", "low", "none"].includes(priority)) {
     console.log("Priority:", priority.toLowerCase());
   }
+  addToDatabase();
+  async function addToDatabase() {
+    try {
+      const tasks = [
+        {
+          description: description,
+          creationDate: creationDate,
+          completionDate: completionDate,
+          priority: priority,
+          completed: completed,
+        },
+      ];
+      // await Task.deleteMany({}); // löscht alle Daten aus der Datenbank
+      await Task.insertMany(tasks);
 
-  yargs.command({
-    command: "back", // Befehl, um zur CLI-Anwendung zurückzukehren
-    describe: "Return to the CLI application",
-    handler: () => {
-      // Hier kannst du weitere Aktionen ausführen, wenn der 'back'-Befehl eingegeben wird
-      console.log("Returning to the CLI application...");
-      rl.close(); // Schließe das readline-Interface, um zur CLI zurückzukehren
-    },
-  }).argv;
+      console.log("Daten erfolgreich eingefügt.");
+    } catch (error) {
+      console.error("Fehler beim Einfügen von Daten:", error);
+    }
+  }
 }
-
-addData();
 
 function seedDummyData() {
   seedDatabase().then(() => console.log("Data added"));
 }
-// mongoose.connection.close()
+if (args.d) {
+  question(
+    "Are you sure you want to delete all data in the database? (true/false): "
+  )
+    // TODO: vorhandenen Validator benutzen!
+    .then((answer) => {
+      if (/^(true|false|t|f)$/i.test(answer)) {
+        return answer.toLowerCase() === "true" || answer.toLowerCase() === "t";
+      } else {
+        throw new Error("Invalid input. Deletion aborted.");
+      }
+    })
+    .then((shouldDelete) => {
+      if (shouldDelete) {
+        return Task.deleteMany({});
+      } else {
+        throw new Error("Deletion aborted.");
+      }
+    })
+    .then(() => {
+      console.log("Database data successfully deleted.");
+    })
+    .catch((error) => {
+      console.error("Data could not be deleted", error.message);
+    });
+}
+if (args.a) {
+  addData();
+}
+if (args.s) {
+  seedDummyData();
+}
+// mongoose.connection.close();
